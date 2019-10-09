@@ -8,13 +8,32 @@ const Sharp = require('sharp');
 const PathPattern = new RegExp("/(images/)rsz/(.*)/(.*)");
 
 // parameters
-const BUCKET = "cdn.pay.super.com"
-
+//const BUCKET = "cdn.pay.super.com"
+const {BUCKET, URL} = process.env
 
 exports.handler = function(event, _context, callback) {
     //var path = event.path;
     var path = event.queryStringParameters.path;
     console.log('Request uri: '+path);
+
+    var sourceBucket;
+    if(event.queryStringParameters.source_bucket){
+        sourceBucket = event.queryStringParameters.source_bucket;
+    }
+    else{
+        sourceBucket = BUCKET;
+    }
+    
+    var redirDomain;
+    if(event.queryStringParameters.redir_domain){
+        redirDomain = event.queryStringParameters.redir_domain;
+    }
+    else{
+        redirDomain = URL;
+    }
+
+    console.log(`Source bucket: ${sourceBucket}`);
+    console.log(`Redirect to domain: ${redirDomain}`);
 
     var parts = PathPattern.exec(path);
     var dir = parts[1] || '';
@@ -40,7 +59,7 @@ exports.handler = function(event, _context, callback) {
     console.log('resizedKey: '+resizedKey);
 
     var contentType;
-    S3.getObject({Bucket: BUCKET, Key: dir + filename})
+    S3.getObject({Bucket: sourceBucket, Key: dir + filename})
         .promise()
         .then(data => {
             console.log("Get original file - SUCCESS");
@@ -72,7 +91,7 @@ exports.handler = function(event, _context, callback) {
             console.log("Put resized file to S3");
             S3.putObject({
                 Body: result,
-                Bucket: BUCKET,
+                Bucket: sourceBucket,
                 ContentType: contentType,
                 Key: resizedKey
             }).promise() }
@@ -81,7 +100,8 @@ exports.handler = function(event, _context, callback) {
             console.log("Put success");
             callback(null, {
                 statusCode: 301,
-                headers: {"Location" : `https://cdn.pay.super.com${path}`}
+                //headers: {"Location" : `https://cdn.pay.super.com${path}`}
+                headers: {"Location" : `https://${redirDomain}${path}`}
             })},
             error => {
                 console.log('Put failed')    
