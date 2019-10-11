@@ -36,6 +36,14 @@ exports.handler = function(event, _context, callback) {
     console.log(`Redirect to domain: ${redirDomain}`);
 
     var parts = PathPattern.exec(path);
+    if(!parts) {
+        callback(null, {
+            statusCode: 404,
+            body: 'not found',
+            headers: {"Content-Type": "text/plain"}
+        });
+        return;
+    }
     var dir = parts[1] || '';
     var options = parts[2].split('_');
     var filename = parts[3];
@@ -62,31 +70,41 @@ exports.handler = function(event, _context, callback) {
     S3.getObject({Bucket: sourceBucket, Key: dir + filename})
         .promise()
         .then(data => {
-            console.log("Get original file - SUCCESS");
-            contentType = data.ContentType;
-            var width = sizes[0] === 'AUTO' ? null : parseInt(sizes[0]);
-            var height = sizes[1] === 'AUTO' ? null : parseInt(sizes[1]);
-            var fit;
-            switch (action) {
-                case 'max':
-                    fit = 'inside';
-                    break;
-                case 'min':
-                    fit = 'outside';
-                    break
-                default:
-                    fit = 'cover';
-                    break;
+                console.log("Get original file - SUCCESS");
+                contentType = data.ContentType;
+                var width = sizes[0] === 'AUTO' ? null : parseInt(sizes[0]);
+                var height = sizes[1] === 'AUTO' ? null : parseInt(sizes[1]);
+                var fit;
+                switch (action) {
+                    case 'max':
+                        fit = 'inside';
+                        break;
+                    case 'min':
+                        fit = 'outside';
+                        break
+                    default:
+                        fit = 'cover';
+                        break;
+                }
+                var options = {
+                    withoutEnlargement: true,
+                    fit
+                };
+                return Sharp(data.Body)
+                    .resize(width, height, options)
+                    .rotate()
+                    .toBuffer();
+            },
+            error => {
+                console.log('Failed to get original file from S3');
+                callback(null, {
+                    statusCode: 404,
+                    body: 'not found',
+                    headers: {"Content-Type": "text/plain"}
+                });
+                return Promise.reject('Failed to get original file from S3')
             }
-            var options = {
-                withoutEnlargement: true,
-                fit
-            };
-            return Sharp(data.Body)
-                .resize(width, height, options)
-                .rotate()
-                .toBuffer();
-        })
+        )
         .then(result => {
             console.log("Put resized file to S3");
             S3.putObject({
@@ -94,8 +112,8 @@ exports.handler = function(event, _context, callback) {
                 Bucket: sourceBucket,
                 ContentType: contentType,
                 Key: resizedKey
-            }).promise() }
-        )
+            }).promise() 
+        })
         .then(() => {
             console.log("Put success");
             callback(null, {
