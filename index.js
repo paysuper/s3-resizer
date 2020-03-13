@@ -2,14 +2,17 @@
 
 // this file is for lambda function used in API GateWay for image resize.
 
+//https://rlmjh6knp1.execute-api.eu-west-1.amazonaws.com/prod/img-resize-api/?path=/100x101/4.jpg
+
 const AWS = require('aws-sdk')
 const S3 = new AWS.S3({signatureVersion: 'v4'});
 const Sharp = require('sharp');
-const PathPattern = new RegExp("/(images/)rsz/(.*)/(.*)");
 
 // parameters
 //const BUCKET = "cdn.pay.super.com"
-const {BUCKET, URL} = process.env
+const {BUCKET, URL, ROOT_KEY_PREFIX, RSZ_SUBKEY, ERROR_URL} = process.env
+
+const PathPattern = new RegExp(`/(${ROOT_KEY_PREFIX}/)${RSZ_SUBKEY}/(.*)/(.*)`);
 
 exports.handler = function(event, _context, callback) {
     //var path = event.path;
@@ -35,11 +38,11 @@ exports.handler = function(event, _context, callback) {
     console.log(`Source bucket: ${sourceBucket}`);
     console.log(`Redirect to domain: ${redirDomain}`);
 
-    var parts = PathPattern.exec(path);
+    var parts = PathPattern.exec(`/${ROOT_KEY_PREFIX}/${RSZ_SUBKEY}${path}`);
     if(!parts) {
         callback(null, {
             statusCode: 404,
-            body: 'not found',
+            body: 'wrong path',
             headers: {"Content-Type": "text/plain"}
         });
         return;
@@ -47,7 +50,7 @@ exports.handler = function(event, _context, callback) {
     var dir = parts[1] || '';
     var options = parts[2].split('_');
     var filename = parts[3];
-    var resizedKey = dir + 'rsz/'+parts[2]+'/'+filename;
+    var resizedKey = dir + `${RSZ_SUBKEY}/`+parts[2]+'/'+filename;
 
     var sizes = options[0].split("x");
     var action = options.length > 1 ? options[1] : null;
@@ -98,9 +101,11 @@ exports.handler = function(event, _context, callback) {
             error => {
                 console.log('Failed to get original file from S3');
                 callback(null, {
-                    statusCode: 404,
-                    body: 'not found',
-                    headers: {"Content-Type": "text/plain"}
+                    statusCode: 301,
+                    headers: {"Location" : `${ERROR_URL}`}                    
+                    // statusCode: 404,
+                    // body: 'not found',
+                    // headers: {"Content-Type": "text/plain"}
                 });
                 return Promise.reject('Failed to get original file from S3')
             }
@@ -119,7 +124,7 @@ exports.handler = function(event, _context, callback) {
             callback(null, {
                 statusCode: 301,
                 //headers: {"Location" : `https://cdn.pay.super.com${path}`}
-                headers: {"Location" : `https://${redirDomain}${path}`}
+                headers: {"Location" : `https://${redirDomain}/${resizedKey}`}
             })},
             error => {
                 console.log('Put failed')    
