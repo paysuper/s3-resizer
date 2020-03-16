@@ -95,7 +95,7 @@ exports.handler = function(event, _context, callback) {
                 };
                 return Sharp(data.Body)
                     .resize(width, height, options)
-                    .jpeg({ quality: 100, force: false })
+                    .jpeg({ quality: 85, force: false })
                     .png({ compressionLevel: 9, force: false })
                     .rotate()
                     .toBuffer();
