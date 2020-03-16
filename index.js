@@ -86,14 +86,16 @@ exports.handler = function(event, _context, callback) {
                         fit = 'outside';
                         break
                     default:
-                        fit = 'cover';
+                        fit = 'contain';
                         break;
                 }
                 var options = {
-                    withoutEnlargement: true,
-                    fit
+                    withoutEnlargement: false,
+                    fit,
+                    background: {r: 0, g: 0, b: 0, alpha: 0}
                 };
-                return Sharp(data.Body)
+                var image = Sharp(data.Body)
+                return image
                     .resize(width, height, options)
                     .jpeg({ quality: 85, force: false })
                     .png({ compressionLevel: 9, force: false })
@@ -120,16 +122,19 @@ exports.handler = function(event, _context, callback) {
                 ContentType: contentType,
                 Key: resizedKey
             }).promise() 
+        }, error => {
+            console.log('Failed to resize: ',error)
+            return Promise.reject('Failed to resize image')
         })
         .then(() => {
             console.log("Put success");
             callback(null, {
                 statusCode: 301,
-                //headers: {"Location" : `https://cdn.pay.super.com${path}`}
                 headers: {"Location" : `https://${redirDomain}/${resizedKey}`}
             })},
             error => {
-                console.log('Put failed')    
+                console.log('Put failed: ', error)
+                return Promise.reject('Failed to put resized image to S3')
             }
         )
         .catch(e => {
