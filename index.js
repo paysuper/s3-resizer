@@ -12,33 +12,42 @@ const Sharp = require('sharp');
 //const BUCKET = "cdn.pay.super.com"
 const {BUCKET, URL, ROOT_KEY_PREFIX, RSZ_SUBKEY, ERROR_URL} = process.env
 
-const PathPattern = new RegExp(`/(${ROOT_KEY_PREFIX}/)${RSZ_SUBKEY}/(.*)/(.*)`);
-
 exports.handler = function(event, _context, callback) {
     //var path = event.path;
-    var path = event.queryStringParameters.path;
-    console.log('Request uri: '+path);
+    //const urlParams = new URLSearchParams(s);
+    //console.log(urlParams.get('source_bucket'))
 
-    var sourceBucket;
-    if(event.queryStringParameters.source_bucket){
-        sourceBucket = event.queryStringParameters.source_bucket;
-    }
-    else{
+    console.log('Request event: '+JSON.stringify(event));    
+
+    var params = new URLSearchParams(decodeURIComponent(event.queryStringParameters.params));
+    console.log('params: ', params);
+    
+    //var path = event.queryStringParameters.path;
+    var path = params.get('path');
+
+    var sourceBucket = params.get('source_bucket');
+    if(!sourceBucket){        
         sourceBucket = BUCKET;
     }
     
-    var redirDomain;
-    if(event.queryStringParameters.redir_domain){
-        redirDomain = event.queryStringParameters.redir_domain;
-    }
-    else{
+    var redirDomain = params.get('redir_domain');
+    if(!redirDomain){
         redirDomain = URL;
     }
 
+    var rootKeyPrefix=params.get('key_prefix');
+    if(!rootKeyPrefix){
+        rootKeyPrefix = ROOT_KEY_PREFIX;
+    }
+
+    console.log('Request path: '+path);
     console.log(`Source bucket: ${sourceBucket}`);
     console.log(`Redirect to domain: ${redirDomain}`);
+    console.log(`Key prefix: ${rootKeyPrefix}`);
 
-    var parts = PathPattern.exec(`/${ROOT_KEY_PREFIX}/${RSZ_SUBKEY}${path}`);
+    const PathPattern = new RegExp(`/(${rootKeyPrefix}/)${RSZ_SUBKEY}/(.*)/(.*)`);
+
+    var parts = PathPattern.exec(`/${rootKeyPrefix}/${RSZ_SUBKEY}${path}`);
     if(!parts) {
         callback(null, {
             statusCode: 404,
