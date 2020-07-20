@@ -1,16 +1,16 @@
-'use strict'
+'use strict';
 
 // this file is for lambda function used in API GateWay for image resize.
 
 //https://rlmjh6knp1.execute-api.eu-west-1.amazonaws.com/prod/img-resize-api/?path=/100x101/4.jpg
 
-const AWS = require('aws-sdk')
+const AWS = require('aws-sdk');
 const S3 = new AWS.S3({signatureVersion: 'v4'});
 const Sharp = require('sharp');
-
+const {URLSearchParams} = require('url');
 // parameters
 //const BUCKET = "cdn.pay.super.com"
-const {BUCKET, URL, ROOT_KEY_PREFIX, RSZ_SUBKEY, ERROR_URL} = process.env
+const {BUCKET, URL, ROOT_KEY_PREFIX, RSZ_SUBKEY, ERROR_URL} = process.env;
 
 exports.handler = function(event, _context, callback) {
     //var path = event.path;
@@ -93,7 +93,7 @@ exports.handler = function(event, _context, callback) {
                         break;
                     case 'min':
                         fit = 'outside';
-                        break
+                        break;
                     default:
                         fit = 'contain';
                         break;
@@ -103,7 +103,7 @@ exports.handler = function(event, _context, callback) {
                     fit,
                     background: {r: 0, g: 0, b: 0, alpha: 0}
                 };
-                var image = Sharp(data.Body)
+                var image = Sharp(data.Body);
                 return image
                     .resize(width, height, options)
                     .jpeg({ quality: 85, force: false })
@@ -120,7 +120,7 @@ exports.handler = function(event, _context, callback) {
                     // body: 'not found',
                     // headers: {"Content-Type": "text/plain"}
                 });
-                return Promise.reject('Failed to get original file from S3')
+                return Promise.reject('Failed to get original file from S3');
             }
         )
         .then(result => {
@@ -130,10 +130,10 @@ exports.handler = function(event, _context, callback) {
                 Bucket: sourceBucket,
                 ContentType: contentType,
                 Key: resizedKey
-            }).promise() 
+            }).promise() ;
         }, error => {
-            console.log('Failed to resize: ',error)
-            return Promise.reject('Failed to resize image')
+            console.log('Failed to resize: ',error);
+            return Promise.reject('Failed to resize image');
         })
         .then(() => {
             console.log("Put success");
@@ -142,16 +142,16 @@ exports.handler = function(event, _context, callback) {
                 headers: {"Location" : `https://${redirDomain}/${resizedKey}`}
             })},
             error => {
-                console.log('Put failed: ', error)
-                return Promise.reject('Failed to put resized image to S3')
+                console.log('Put failed: ', error);
+                return Promise.reject('Failed to put resized image to S3');
             }
         )
         .catch(e => {
-            console.log('Exception: ' + e.message)
+            console.log('Exception: ' + e.message);
             callback(null, {
                 statusCode: e.statusCode || 400,
                 body: 'Exception: ' + e.message,
                 headers: {"Content-Type": "text/plain"}
-            })
+            });
         });
-}
+};
